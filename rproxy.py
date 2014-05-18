@@ -52,7 +52,10 @@ def status_update():
         except:
             status = ''
         if not status:
-            tivo.close()
+            try:
+                tivo.close()
+            except:
+                pass
             tivo = None
             break
         for l in listeners[:]:
