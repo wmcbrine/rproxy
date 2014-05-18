@@ -1,5 +1,39 @@
 #!/usr/bin/env python
 
+# Remote Proxy for TiVo, v0.2
+# Copyright 2014 William McBrine
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You didn't receive a copy of the license with this program because 
+# you already have dozens of copies, don't you? If not, visit gnu.org.
+
+""" Remote Proxy for TiVo
+
+    This is a server that connects to the "Crestron" interface on a
+    Series 3 or later TiVo, and reflects the port back out, allowing
+    multiple simultaneous connections. (The TiVo allows only one.)
+    Commands are queued from all sources, and sent to the TiVo no more
+    often than once every tenth of a second, avoiding overload. Status
+    responses are sent back to all connected clients. In other words, it
+    works like the spec says the TiVo service is supposed to. :)
+
+    Takes the address of the TiVo to connect to as the only parameter.
+
+"""
+
+__author__ = 'William McBrine <wmcbrine@gmail.com>'
+__version__ = '0.2'
+__license__ = 'GPL'
+
 import socket
 import sys
 import thread
