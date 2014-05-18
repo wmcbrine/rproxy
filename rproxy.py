@@ -34,6 +34,7 @@ __author__ = 'William McBrine <wmcbrine@gmail.com>'
 __version__ = '0.2'
 __license__ = 'GPL'
 
+import getopt
 import socket
 import sys
 import thread
@@ -45,12 +46,15 @@ in_process = False
 queue = []
 listeners = []
 tivo = None
+verbose = False
 
 def process_queue():
     global in_process
     while in_process:
         if queue:
             msg = queue.pop(0)
+            if verbose:
+                sys.stderr.write('%s\n' % msg)
             try:
                 tivo.sendall(msg)
             except:
@@ -92,6 +96,8 @@ def status_update():
                 pass
             tivo = None
             break
+        if verbose:
+            sys.stderr.write('%s\n' % status)
         for l in listeners[:]:
             try:
                 l.sendall(status)
@@ -112,7 +118,22 @@ if len(sys.argv) < 2:
     sys.stderr.write('Must specify an address\n')
     sys.exit(1)
 
-connect((sys.argv[1], TIVO_REMOTE_PORT1))
+try:
+    opts, t_address = getopt.getopt(sys.argv[1:], 'v', ['verbose'])
+except getopt.GetoptError, msg:
+    sys.stderr.write('%s\n' % msg)
+
+for opt, value in opts:
+    if opt in ('-v', '--verbose'):
+        verbose = True
+
+t_address = t_address[0]
+if ':' in t_address:
+    t_address, t_port = address.split(':')
+    t_port = int(t_port)
+else:
+    t_port = TIVO_REMOTE_PORT1
+connect((t_address, t_port))
 
 thread.start_new_thread(status_update, ())
 
@@ -128,4 +149,7 @@ try:
 except KeyboardInterrupt:
     pass
 
-tivo.close()
+try:
+    tivo.close()
+except:
+    pass
