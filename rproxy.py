@@ -26,7 +26,21 @@
     responses are sent back to all connected clients. In other words, it
     works like the spec says the TiVo service is supposed to. :)
 
-    Takes the address of the TiVo to connect to as the only parameter.
+    Command-line options:
+
+    -a, --address     Specify the address to serve from. The default is
+                      '' (bind to all interfaces).
+
+    -p, --port        Specify the port to serve from. The default is
+                      31339, the standard TiVo "Crestron" remote port.
+
+    -v, --verbose     Echo messages to and from the TiVo to the console.
+
+    -h, --help        Print help and exit.
+
+    <address>         Any other command-line option is treated as the IP
+                      address (with optional port number) of the TiVo to
+                      connect to. This is a required parameter.
 
 """
 
@@ -114,18 +128,29 @@ def connect(target):
     except:
         raise
 
+host = ''
+port = TIVO_REMOTE_PORT1
+
 if len(sys.argv) < 2:
     sys.stderr.write('Must specify an address\n')
     sys.exit(1)
 
 try:
-    opts, t_address = getopt.getopt(sys.argv[1:], 'v', ['verbose'])
+    opts, t_address = getopt.getopt(sys.argv[1:], 'a:p:vh',
+                                    ['address=', 'port=', 'verbose', 'help'])
 except getopt.GetoptError, msg:
     sys.stderr.write('%s\n' % msg)
 
 for opt, value in opts:
-    if opt in ('-v', '--verbose'):
+    if opt in ('-a', '--address'):
+        host = value
+    elif opt in ('-p', '--port'):
+        port = int(value)
+    elif opt in ('-v', '--verbose'):
         verbose = True
+    elif opt in ('-h', '--help'):
+        print __doc__
+        sys.exit()
 
 t_address = t_address[0]
 if ':' in t_address:
@@ -138,7 +163,7 @@ connect((t_address, t_port))
 thread.start_new_thread(status_update, ())
 
 server = socket.socket()
-server.bind(('', TIVO_REMOTE_PORT1))
+server.bind((host, port))
 server.listen(5)
 
 try:
