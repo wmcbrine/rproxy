@@ -54,32 +54,27 @@ import sys
 import thread
 import time
 
+from Queue import Queue
+
 TIVO_REMOTE_PORT1 = 31339
 
-in_process = False
-queue = []
+queue = Queue()
 listeners = []
 tivo = None
 verbose = False
 
 def process_queue():
-    global in_process
-    while in_process:
-        if queue:
-            msg = queue.pop(0)
-            if verbose:
-                sys.stderr.write('%s\n' % msg)
-            try:
-                tivo.sendall(msg)
-            except:
-                break
-            time.sleep(0.1)
-        else:
-            time.sleep(0.02)
-    in_process = False
+    while True:
+        msg = queue.get()
+        if verbose:
+            sys.stderr.write('%s\n' % msg)
+        try:
+            tivo.sendall(msg)
+        except:
+            break
+        time.sleep(0.1)
 
 def read_client(client):
-    global in_process
     while True:
         try:
             msg = client.recv(1024)
@@ -87,10 +82,7 @@ def read_client(client):
             break
         if not msg:
             break
-        queue.append(msg)
-        if not in_process:
-            in_process = True
-            thread.start_new_thread(process_queue, ())
+        queue.put(msg)
     try:
         client.close()
     except:
@@ -160,6 +152,7 @@ else:
     t_port = TIVO_REMOTE_PORT1
 connect((t_address, t_port))
 
+thread.start_new_thread(process_queue, ())
 thread.start_new_thread(status_update, ())
 
 server = socket.socket()
