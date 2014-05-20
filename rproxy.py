@@ -64,6 +64,10 @@ tivo = None
 verbose = False
 
 def process_queue():
+    """ Pop commands from the queue and send them to the TiVo. Wait
+        100ms between messages to avoid a bit jam.
+
+    """
     while True:
         msg = queue.get()
         if verbose:
@@ -75,6 +79,10 @@ def process_queue():
         time.sleep(0.1)
 
 def read_client(client):
+    """ Read commands from a client remote control program, and put them
+        in the queue. Run until the client disconnects.
+
+    """
     while True:
         try:
             msg = client.recv(1024)
@@ -89,6 +97,10 @@ def read_client(client):
         pass
 
 def status_update():
+    """ Read status response messages from the TiVo, and send them to
+        each connected client.
+
+    """
     global tivo, listeners
     while True:
         try:
@@ -111,6 +123,7 @@ def status_update():
                 listeners.remove(l)
 
 def connect(target):
+    """ Connect to the target TiVo within five seconds, or abort. """
     global tivo
     try:
         tivo = socket.socket()
