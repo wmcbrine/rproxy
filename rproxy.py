@@ -136,7 +136,7 @@ def connect(target):
 def serve(host_port):
     """ Listen for connections from client remote control programs;
         start new read_client() threads and add listeners as needed.
-        Serve until KeyboardInterrupt, then clean up.
+        Serve until KeyboardInterrupt.
 
     """
     server = socket.socket()
@@ -151,6 +151,11 @@ def serve(host_port):
     except KeyboardInterrupt:
         pass
 
+def cleanup():
+    """ Close all sockets, and push one last message to make the
+        process_queue() thread exit.
+
+    """
     for l in [tivo] + listeners:
         try:
             l.close()
@@ -205,3 +210,4 @@ if __name__ == '__main__':
     thread.start_new_thread(process_queue, ())
     thread.start_new_thread(status_update, ())
     serve(host_port)
+    cleanup()
