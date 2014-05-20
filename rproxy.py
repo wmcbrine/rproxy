@@ -180,7 +180,10 @@ try:
 except KeyboardInterrupt:
     pass
 
-try:
-    tivo.close()
-except:
-    pass
+for l in [tivo] + listeners:
+    try:
+        l.close()
+    except:
+        pass
+
+queue.put('')
