@@ -101,7 +101,7 @@ def status_update():
         each connected client.
 
     """
-    global tivo, listeners
+    global tivo
     while True:
         try:
             status = tivo.recv(1024)
@@ -133,57 +133,75 @@ def connect(target):
     except:
         raise
 
-host = ''
-port = TIVO_REMOTE_PORT1
+def serve(host_port):
+    """ Listen for connections from client remote control programs;
+        start new read_client() threads and add listeners as needed.
+        Serve until KeyboardInterrupt, then clean up.
 
-if len(sys.argv) < 2:
-    sys.stderr.write('Must specify an address\n')
-    sys.exit(1)
+    """
+    server = socket.socket()
+    server.bind(host_port)
+    server.listen(5)
 
-try:
-    opts, t_address = getopt.getopt(sys.argv[1:], 'a:p:vh',
-                                    ['address=', 'port=', 'verbose', 'help'])
-except getopt.GetoptError, msg:
-    sys.stderr.write('%s\n' % msg)
-
-for opt, value in opts:
-    if opt in ('-a', '--address'):
-        host = value
-    elif opt in ('-p', '--port'):
-        port = int(value)
-    elif opt in ('-v', '--verbose'):
-        verbose = True
-    elif opt in ('-h', '--help'):
-        print __doc__
-        sys.exit()
-
-t_address = t_address[0]
-if ':' in t_address:
-    t_address, t_port = address.split(':')
-    t_port = int(t_port)
-else:
-    t_port = TIVO_REMOTE_PORT1
-connect((t_address, t_port))
-
-thread.start_new_thread(process_queue, ())
-thread.start_new_thread(status_update, ())
-
-server = socket.socket()
-server.bind((host, port))
-server.listen(5)
-
-try:
-    while True:
-        client, address = server.accept()
-        listeners.append(client)
-        thread.start_new_thread(read_client, (client,))
-except KeyboardInterrupt:
-    pass
-
-for l in [tivo] + listeners:
     try:
-        l.close()
-    except:
+        while True:
+            client, address = server.accept()
+            listeners.append(client)
+            thread.start_new_thread(read_client, (client,))
+    except KeyboardInterrupt:
         pass
 
-queue.put('')
+    for l in [tivo] + listeners:
+        try:
+            l.close()
+        except:
+            pass
+
+    queue.put('')
+
+def parse_cmdline(params):
+    """ Parse the command-line options, and return tuples for host and
+        target addresses, plus the verbose flag.
+
+    """
+    verbose = False
+    host = ''
+    port = TIVO_REMOTE_PORT1
+
+    try:
+        opts, t_address = getopt.getopt(params, 'a:p:vh', ['address=',
+                                        'port=', 'verbose', 'help'])
+    except getopt.GetoptError, msg:
+        sys.stderr.write('%s\n' % msg)
+
+    for opt, value in opts:
+        if opt in ('-a', '--address'):
+            host = value
+        elif opt in ('-p', '--port'):
+            port = int(value)
+        elif opt in ('-v', '--verbose'):
+            verbose = True
+        elif opt in ('-h', '--help'):
+            print __doc__
+            sys.exit()
+
+    t_address = t_address[0]
+    if ':' in t_address:
+        t_address, t_port = address.split(':')
+        t_port = int(t_port)
+    else:
+        t_port = TIVO_REMOTE_PORT1
+
+    return (host, port), (t_address, t_port), verbose
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.stderr.write('Must specify an address\n')
+        sys.exit(1)
+
+    host_port, target, verbose = parse_cmdline(sys.argv[1:])
+
+    connect(target)
+    thread.start_new_thread(process_queue, ())
+    thread.start_new_thread(status_update, ())
+    serve(host_port)
