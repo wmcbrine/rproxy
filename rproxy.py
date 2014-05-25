@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Remote Proxy for TiVo, v0.2
+# Remote Proxy for TiVo, v0.3
 # Copyright 2014 William McBrine
 #
 # This program is free software; you can redistribute it and/or
@@ -45,7 +45,7 @@
 """
 
 __author__ = 'William McBrine <wmcbrine@gmail.com>'
-__version__ = '0.2'
+__version__ = '0.3'
 __license__ = 'GPL'
 
 import getopt
@@ -169,7 +169,7 @@ def parse_cmdline(params):
         target addresses, plus the verbose flag.
 
     """
-    verbose = False
+    v = False
     host = ''
     port = TIVO_REMOTE_PORT1
 
@@ -185,7 +185,7 @@ def parse_cmdline(params):
         elif opt in ('-p', '--port'):
             port = int(value)
         elif opt in ('-v', '--verbose'):
-            verbose = True
+            v = True
         elif opt in ('-h', '--help'):
             print __doc__
             sys.exit()
@@ -197,17 +197,21 @@ def parse_cmdline(params):
     else:
         t_port = TIVO_REMOTE_PORT1
 
-    return (host, port), (t_address, t_port), verbose
+    return (host, port), (t_address, t_port), v
+
+def main(host_port, target, v=False):
+    global verbose
+    verbose = v
+    connect(target)
+    thread.start_new_thread(process_queue, ())
+    thread.start_new_thread(status_update, ())
+    serve(host_port)
+    cleanup()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    host_port, target, verbose = parse_cmdline(sys.argv[1:])
-
-    connect(target)
-    thread.start_new_thread(process_queue, ())
-    thread.start_new_thread(status_update, ())
-    serve(host_port)
-    cleanup()
+    host_port, target, v = parse_cmdline(sys.argv[1:])
+    main(host_port, target, v)
