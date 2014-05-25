@@ -56,7 +56,7 @@ import time
 
 from Queue import Queue
 
-TIVO_REMOTE_PORT1 = 31339
+DEFAULT_HOST = ('', 31339)
 
 def process_queue(tivo, queue, verbose):
     """ Pop commands from the queue and send them to the TiVo. Wait
@@ -162,9 +162,8 @@ def parse_cmdline(params):
         target addresses, plus the verbose flag.
 
     """
+    host, port = DEFAULT_HOST
     verbose = False
-    host = ''
-    port = TIVO_REMOTE_PORT1
 
     try:
         opts, t_address = getopt.getopt(params, 'a:p:vh', ['address=',
@@ -188,11 +187,11 @@ def parse_cmdline(params):
         t_address, t_port = address.split(':')
         t_port = int(t_port)
     else:
-        t_port = TIVO_REMOTE_PORT1
+        t_port = DEFAULT_HOST[1]
 
-    return (host, port), (t_address, t_port), verbose
+    return (t_address, t_port), (host, port), verbose
 
-def main(host_port, target, verbose=False):
+def proxy(target, host_port=DEFAULT_HOST, verbose=False):
     queue = Queue()
     listeners = []
     tivo = connect(target)
@@ -206,5 +205,5 @@ if __name__ == '__main__':
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    host_port, target, verbose = parse_cmdline(sys.argv[1:])
-    main(host_port, target, verbose)
+    target, host_port, verbose = parse_cmdline(sys.argv[1:])
+    proxy(target, host_port, verbose)
