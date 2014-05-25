@@ -61,9 +61,8 @@ TIVO_REMOTE_PORT1 = 31339
 queue = Queue()
 listeners = []
 tivo = None
-verbose = False
 
-def process_queue():
+def process_queue(verbose):
     """ Pop commands from the queue and send them to the TiVo. Wait
         100ms between messages to avoid a bit jam.
 
@@ -96,7 +95,7 @@ def read_client(client, address):
     except:
         pass
 
-def status_update(address):
+def status_update(address, verbose):
     """ Read status response messages from the TiVo, and send them to
         each connected client.
 
@@ -169,7 +168,7 @@ def parse_cmdline(params):
         target addresses, plus the verbose flag.
 
     """
-    v = False
+    verbose = False
     host = ''
     port = TIVO_REMOTE_PORT1
 
@@ -185,7 +184,7 @@ def parse_cmdline(params):
         elif opt in ('-p', '--port'):
             port = int(value)
         elif opt in ('-v', '--verbose'):
-            v = True
+            verbose = True
         elif opt in ('-h', '--help'):
             print __doc__
             sys.exit()
@@ -197,14 +196,12 @@ def parse_cmdline(params):
     else:
         t_port = TIVO_REMOTE_PORT1
 
-    return (host, port), (t_address, t_port), v
+    return (host, port), (t_address, t_port), verbose
 
-def main(host_port, target, v=False):
-    global verbose
-    verbose = v
+def main(host_port, target, verbose=False):
     connect(target)
-    thread.start_new_thread(process_queue, ())
-    thread.start_new_thread(status_update, (target,))
+    thread.start_new_thread(process_queue, (verbose,))
+    thread.start_new_thread(status_update, (target, verbose))
     serve(host_port)
     cleanup()
 
@@ -213,5 +210,5 @@ if __name__ == '__main__':
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    host_port, target, v = parse_cmdline(sys.argv[1:])
-    main(host_port, target, v)
+    host_port, target, verbose = parse_cmdline(sys.argv[1:])
+    main(host_port, target, verbose)
