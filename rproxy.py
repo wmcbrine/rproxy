@@ -69,16 +69,16 @@ def process_queue():
 
     """
     while True:
-        msg = queue.get()
+        msg, address = queue.get()
         if verbose:
-            sys.stderr.write('%s\n' % msg)
+            sys.stderr.write('%s: %s\n' % (address, msg))
         try:
             tivo.sendall(msg)
         except:
             break
         time.sleep(0.1)
 
-def read_client(client):
+def read_client(client, address):
     """ Read commands from a client remote control program, and put them
         in the queue. Run until the client disconnects.
 
@@ -90,13 +90,13 @@ def read_client(client):
             break
         if not msg:
             break
-        queue.put(msg)
+        queue.put((msg, address))
     try:
         client.close()
     except:
         pass
 
-def status_update():
+def status_update(address):
     """ Read status response messages from the TiVo, and send them to
         each connected client.
 
@@ -115,7 +115,7 @@ def status_update():
             tivo = None
             break
         if verbose:
-            sys.stderr.write('%s\n' % status)
+            sys.stderr.write('%s: %s\n' % (address, status))
         for l in listeners[:]:
             try:
                 l.sendall(status)
@@ -147,7 +147,7 @@ def serve(host_port):
         while True:
             client, address = server.accept()
             listeners.append(client)
-            thread.start_new_thread(read_client, (client,))
+            thread.start_new_thread(read_client, (client, address))
     except KeyboardInterrupt:
         pass
 
@@ -162,7 +162,7 @@ def cleanup():
         except:
             pass
 
-    queue.put('')
+    queue.put(('', ''))
 
 def parse_cmdline(params):
     """ Parse the command-line options, and return tuples for host and
@@ -204,7 +204,7 @@ def main(host_port, target, v=False):
     verbose = v
     connect(target)
     thread.start_new_thread(process_queue, ())
-    thread.start_new_thread(status_update, ())
+    thread.start_new_thread(status_update, (target,))
     serve(host_port)
     cleanup()
 
