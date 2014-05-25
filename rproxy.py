@@ -58,9 +58,7 @@ from Queue import Queue
 
 TIVO_REMOTE_PORT1 = 31339
 
-tivo = None
-
-def process_queue(queue, verbose):
+def process_queue(tivo, queue, verbose):
     """ Pop commands from the queue and send them to the TiVo. Wait
         100ms between messages to avoid a bit jam.
 
@@ -93,12 +91,11 @@ def read_client(queue, client, address):
     except:
         pass
 
-def status_update(listeners, address, verbose):
+def status_update(tivo, listeners, address, verbose):
     """ Read status response messages from the TiVo, and send them to
         each connected client.
 
     """
-    global tivo
     while True:
         try:
             status = tivo.recv(1024)
@@ -109,7 +106,6 @@ def status_update(listeners, address, verbose):
                 tivo.close()
             except:
                 pass
-            tivo = None
             break
         if verbose:
             sys.stderr.write('%s: %s\n' % (address, status))
@@ -121,7 +117,6 @@ def status_update(listeners, address, verbose):
 
 def connect(target):
     """ Connect to the target TiVo within five seconds, or abort. """
-    global tivo
     try:
         tivo = socket.socket()
         tivo.settimeout(5)
@@ -129,6 +124,7 @@ def connect(target):
         tivo.settimeout(None)
     except:
         raise
+    return tivo
 
 def serve(queue, listeners, host_port):
     """ Listen for connections from client remote control programs;
@@ -148,7 +144,7 @@ def serve(queue, listeners, host_port):
     except KeyboardInterrupt:
         pass
 
-def cleanup(queue, listeners):
+def cleanup(tivo, queue, listeners):
     """ Close all sockets, and push one last message to make the
         process_queue() thread exit.
 
@@ -199,11 +195,11 @@ def parse_cmdline(params):
 def main(host_port, target, verbose=False):
     queue = Queue()
     listeners = []
-    connect(target)
-    thread.start_new_thread(process_queue, (queue, verbose))
-    thread.start_new_thread(status_update, (listeners, target, verbose))
+    tivo = connect(target)
+    thread.start_new_thread(process_queue, (tivo, queue, verbose))
+    thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
     serve(queue, listeners, host_port)
-    cleanup(queue, listeners)
+    cleanup(tivo, queue, listeners)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
