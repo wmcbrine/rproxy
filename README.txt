@@ -1,6 +1,6 @@
-Remote Proxy for TiVo, v0.2
+Remote Proxy for TiVo, v0.3
 by William McBrine <wmcbrine@gmail.com>
-May 20, 2014
+May 26, 2014
 
 This is a very simple server that connects to the "Crestron" interface 
 (port 31339) on a Series 3 or later TiVo, and reflects the port back 
@@ -59,6 +59,8 @@ Command-Line Options
 -p, --port        Specify the port to serve from. The default is
                   31339, the standard TiVo "Crestron" remote port.
 
+-z, --nozeroconf  Disable Zeroconf announcements.
+
 -v, --verbose     Echo messages to and from the TiVo to the console.
 
 -h, --help        Print help and exit.
@@ -70,6 +72,15 @@ Command-Line Options
 
 Changes
 -------
+
+0.3  -- Announce the service via Zeroconf, making it auto-discoverable. 
+        (It appears as "Proxy(tivoname)".) Can be suppressed via -z, or 
+        by removing Zeroconf.py.
+
+        The verbose mode display now includes the IP and port of the 
+        system where the command or response originated.
+
+        Slightly reorganized and better-documented.
 
 0.2  -- Changed from list/wait loop to Queue.Queue. Suggestion of 
         "telemark".
