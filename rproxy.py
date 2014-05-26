@@ -34,6 +34,8 @@
     -p, --port        Specify the port to serve from. The default is
                       31339, the standard TiVo "Crestron" remote port.
 
+    -z, --nozeroconf  Disable Zeroconf announcements.
+
     -v, --verbose     Echo messages to and from the TiVo to the console.
 
     -h, --help        Print help and exit.
@@ -56,7 +58,77 @@ import time
 
 from Queue import Queue
 
+have_zc = True
+try:
+    import Zeroconf
+except:
+    have_zc = False
+
 DEFAULT_HOST = ('', 31339)
+SERVICE = '_tivo-remote._tcp.local.'
+
+class ZCListener:
+    def __init__(self, names):
+        self.names = names
+
+    def removeService(self, server, type, name):
+        self.names.remove(name)
+
+    def addService(self, server, type, name):
+        self.names.append(name)
+
+class ZCBroadcast:
+    def __init__(self, target, addr):
+        host, port = addr
+        host_ip = self.get_address(host)
+        self.rz = Zeroconf.Zeroconf()
+        tivos = self.find_tivos()
+        if target in tivos:
+            name, prop = tivos[target]
+        else:
+            name = target[0]
+            prop = {'path': '/', 'protocol': 'tivo-remote'}
+        name = 'Proxy(%s)' % name
+
+        self.info = Zeroconf.ServiceInfo(SERVICE, '%s.%s' % (name, SERVICE),
+                                         host_ip, port, 0, 0, prop)
+        self.rz.registerService(self.info)
+
+    def find_tivos(self):
+        """ Get the records of TiVos offering remote control. """
+        tivos = {}
+        tivo_names = []
+
+        try:
+            browser = Zeroconf.ServiceBrowser(self.rz, SERVICE,
+                                              ZCListener(tivo_names))
+        except:
+            return tivos
+
+        time.sleep(1)    # Give them a second to respond
+
+        # Now get the addresses and properties -- this is the slow part
+        for t in tivo_names:
+            s = self.rz.getServiceInfo(SERVICE, t)
+            if s:
+                name = t.replace('.' + SERVICE, '')
+                address = socket.inet_ntoa(s.getAddress())
+                port = s.getPort()
+                prop = s.getProperties()
+                tivos[(address, port)] = (name, prop)
+
+        return tivos
+
+    def shutdown(self):
+        self.rz.unregisterService(self.info)
+        self.rz.close()
+
+    def get_address(self, host):
+        if not host:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('4.2.2.1', 123))
+            host = s.getsockname()[0]
+        return socket.inet_aton(host)
 
 def process_queue(tivo, queue, verbose):
     """ Pop commands from the queue and send them to the TiVo. Wait
@@ -163,11 +235,13 @@ def parse_cmdline(params):
 
     """
     host, port = DEFAULT_HOST
+    use_zc = have_zc
     verbose = False
 
     try:
-        opts, t_address = getopt.getopt(params, 'a:p:vh', ['address=',
-                                        'port=', 'verbose', 'help'])
+        opts, t_address = getopt.getopt(params, 'a:p:zvh', ['address=',
+                                        'port=', 'nozeroconf',
+                                        'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
 
@@ -176,6 +250,8 @@ def parse_cmdline(params):
             host = value
         elif opt in ('-p', '--port'):
             port = int(value)
+        elif opt in ('-z', '--nozeroconf'):
+            use_zc = False
         elif opt in ('-v', '--verbose'):
             verbose = True
         elif opt in ('-h', '--help'):
@@ -189,15 +265,19 @@ def parse_cmdline(params):
     else:
         t_port = DEFAULT_HOST[1]
 
-    return (t_address, t_port), (host, port), verbose
+    return (t_address, t_port), (host, port), use_zc, verbose
 
-def proxy(target, host_port=DEFAULT_HOST, verbose=False):
+def proxy(target, host_port=DEFAULT_HOST, use_zc=True, verbose=False):
     queue = Queue()
     listeners = []
     tivo = connect(target)
     thread.start_new_thread(process_queue, (tivo, queue, verbose))
     thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
+    if use_zc:
+        zc = ZCBroadcast(target, host_port)
     serve(queue, listeners, host_port)
+    if use_zc:
+        zc.shutdown()
     cleanup(tivo, queue, listeners)
 
 if __name__ == '__main__':
@@ -205,5 +285,5 @@ if __name__ == '__main__':
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    target, host_port, verbose = parse_cmdline(sys.argv[1:])
-    proxy(target, host_port, verbose)
+    target, host_port, use_zc, verbose = parse_cmdline(sys.argv[1:])
+    proxy(target, host_port, use_zc, verbose)
