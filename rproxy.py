@@ -135,6 +135,14 @@ class ZCBroadcast:
                 prop = s.getProperties()
                 tivos[(address, port)] = (name, prop)
 
+        if not all:
+            # For proxies with numeric names, remove the original
+            for t in tivo_names:
+                if t.startswith('Proxy('):
+                    address = t.replace('.' + SERVICE, '')[6:-1]
+                    for key in tivos.keys()[:]:
+                        if key[0] == address:
+                            tivos.pop(key)
         return tivos
 
     def shutdown(self):
