@@ -113,6 +113,15 @@ class ZCBroadcast:
 
         time.sleep(1)    # Give them a second to respond
 
+        # For proxied TiVos, remove the original
+        for t in tivo_names[:]:
+            if t.startswith('Proxy('):
+                try:
+                    t = t.replace('.' + SERVICE, '')[6:-1] + '.' + SERVICE
+                    tivo_names.remove(t)
+                except:
+                    pass
+
         # Now get the addresses and properties -- this is the slow part
         for t in tivo_names:
             s = self.rz.getServiceInfo(SERVICE, t)
