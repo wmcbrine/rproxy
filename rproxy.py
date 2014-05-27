@@ -95,8 +95,9 @@ class ZCBroadcast:
             name, prop = tivos[target]
         else:
             name = target[0]
-            prop = {'path': '/', 'protocol': 'tivo-remote',
-                    'swversion': '0.0', 'platform': 'tcd/Series3'}
+            prop = {'TSN': '648000000000000', 'path': '/',
+                    'protocol': 'tivo-remote', 'swversion': '0.0',
+                    'platform': 'tcd/Series3'}
         name = 'Proxy(%s)' % name
 
         self.info = Zeroconf.ServiceInfo(SERVICE, '%s.%s' % (name, SERVICE),
