@@ -28,25 +28,27 @@
 
     Command-line options:
 
-    -a, --address     Specify the address to serve from. The default is
-                      '' (bind to all interfaces).
+    -a, --address      Specify the address to serve from. The default is
+                       '' (bind to all interfaces).
 
-    -p, --port        Specify the port to serve from. The default is
-                      31339, the standard TiVo "Crestron" remote port.
+    -p, --port         Specify the port to serve from. The default is
+                       31339, the standard TiVo "Crestron" remote port.
 
-    -l, --list        List TiVos found on the network, and exit.
+    -l, --list         List TiVos found on the network, and exit.
 
-    -z, --nozeroconf  Disable Zeroconf announcements.
+    -i, --interactive  List TiVos found, and prompt which to connect to.
 
-    -v, --verbose     Echo messages to and from the TiVo to the console.
-                      (In combination with -l, show extended details.)
+    -z, --nozeroconf   Disable Zeroconf announcements.
 
-    -h, --help        Print help and exit.
+    -v, --verbose      Echo messages to and from the TiVo to the console.
+                       (In combination with -l, show extended details.)
 
-    <address>         Any other command-line option is treated as the IP
-                      address (with optional port number) of the TiVo to
-                      connect to. This is a required parameter, except
-                      with -l or -h.
+    -h, --help         Print help and exit.
+
+    <address>          Any other command-line option is treated as the IP
+                       address (with optional port number) of the TiVo to
+                       connect to. This is a required parameter, except
+                       with -l or -h.
 
 """
 
@@ -256,11 +258,12 @@ def parse_cmdline(params):
     use_zc = have_zc
     verbose = False
     tlist = False
+    tselect = False
 
     try:
-        opts, t_address = getopt.getopt(params, 'a:p:lzvh', ['address=',
-                                        'port=', 'list', 'nozeroconf',
-                                        'verbose', 'help'])
+        opts, t_address = getopt.getopt(params, 'a:p:lizvh', ['address=',
+                                        'port=', 'list', 'interactive',
+                                        'nozeroconf', 'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
 
@@ -271,6 +274,8 @@ def parse_cmdline(params):
             port = int(value)
         elif opt in ('-l', '--list'):
             tlist = True
+        elif opt in ('-i', '--interactive'):
+            tselect = True
         elif opt in ('-z', '--nozeroconf'):
             use_zc = False
         elif opt in ('-v', '--verbose'):
@@ -279,8 +284,8 @@ def parse_cmdline(params):
             print __doc__
             sys.exit()
 
-    if tlist:
-        return (), (), True, verbose, tlist
+    if tlist or tselect:
+        return (), (host, port), True, verbose, tlist, tselect
 
     t_address = t_address[0]
     if ':' in t_address:
@@ -289,7 +294,7 @@ def parse_cmdline(params):
     else:
         t_port = DEFAULT_HOST[1]
 
-    return (t_address, t_port), (host, port), use_zc, verbose, tlist
+    return (t_address, t_port), (host, port), use_zc, verbose, tlist, tselect
 
 def proxy(target, host_port=DEFAULT_HOST, use_zc=True, verbose=False):
     queue = Queue()
@@ -306,7 +311,11 @@ def proxy(target, host_port=DEFAULT_HOST, use_zc=True, verbose=False):
     cleanup(tivo, queue, listeners)
 
 def scan(verbose):
-    zc = ZCBroadcast()
+    try:
+        zc = ZCBroadcast()
+    except:
+        sys.stderr.write('-l requires Zeroconf\n')
+        sys.exit(1)
     tivos = zc.find_tivos()
     zc.stop()
     for key, data in tivos.items():
@@ -317,13 +326,36 @@ def scan(verbose):
                 print ' %s: %s' % (pkey, pdata)
             print
 
+def choose(host_port, verbose):
+    try:
+        zc = ZCBroadcast()
+    except:
+        sys.stderr.write('-i requires Zeroconf\n')
+        sys.exit(1)
+    tivos = zc.find_tivos()
+    zc.stop()
+    choices = {}
+    i = 1
+    for key, data in tivos.items():
+        choices[str(i)] = key
+        name, prop = data
+        print '%d.' % i,
+        print '%s:%d -' % key, name
+        i += 1
+    choice = raw_input('Connect to which? ')
+    if choice in choices:
+        proxy(choices[choice], host_port, True, verbose)
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    target, host_port, use_zc, verbose, tlist = parse_cmdline(sys.argv[1:])
-    if tlist:
+    (target, host_port, use_zc,
+     verbose, tlist, tselect) = parse_cmdline(sys.argv[1:])
+    if tselect:
+        choose(host_port, verbose)
+    elif tlist:
         scan(verbose)
     else:
         proxy(target, host_port, use_zc, verbose)
