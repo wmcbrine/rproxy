@@ -102,7 +102,7 @@ class ZCBroadcast:
                                          host_ip, port, 0, 0, prop)
         self.rz.registerService(self.info)
 
-    def find_tivos(self):
+    def find_tivos(self, all=False):
         """ Get the records of TiVos offering remote control. """
         tivos = {}
         tivo_names = []
@@ -115,14 +115,15 @@ class ZCBroadcast:
 
         time.sleep(1)    # Give them a second to respond
 
-        # For proxied TiVos, remove the original
-        for t in tivo_names[:]:
-            if t.startswith('Proxy('):
-                try:
-                    t = t.replace('.' + SERVICE, '')[6:-1] + '.' + SERVICE
-                    tivo_names.remove(t)
-                except:
-                    pass
+        if not all:
+            # For proxied TiVos, remove the original
+            for t in tivo_names[:]:
+                if t.startswith('Proxy('):
+                    try:
+                        t = t.replace('.' + SERVICE, '')[6:-1] + '.' + SERVICE
+                        tivo_names.remove(t)
+                    except:
+                        pass
 
         # Now get the addresses and properties -- this is the slow part
         for t in tivo_names:
@@ -316,7 +317,7 @@ def scan(verbose):
     except:
         sys.stderr.write('-l requires Zeroconf\n')
         sys.exit(1)
-    tivos = zc.find_tivos()
+    tivos = zc.find_tivos(True)
     zc.stop()
     for key, data in tivos.items():
         name, prop = data
