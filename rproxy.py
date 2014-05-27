@@ -34,15 +34,19 @@
     -p, --port        Specify the port to serve from. The default is
                       31339, the standard TiVo "Crestron" remote port.
 
+    -l, --list        List TiVos found on the network, and exit.
+
     -z, --nozeroconf  Disable Zeroconf announcements.
 
     -v, --verbose     Echo messages to and from the TiVo to the console.
+                      (In combination with -l, show extended details.)
 
     -h, --help        Print help and exit.
 
     <address>         Any other command-line option is treated as the IP
                       address (with optional port number) of the TiVo to
-                      connect to. This is a required parameter.
+                      connect to. This is a required parameter, except
+                      with -l or -h.
 
 """
 
@@ -78,10 +82,12 @@ class ZCListener:
         self.names.append(name)
 
 class ZCBroadcast:
-    def __init__(self, target, addr):
+    def __init__(self):
+        self.rz = Zeroconf.Zeroconf()
+
+    def start(self, target, addr):
         host, port = addr
         host_ip = self.get_address(host)
-        self.rz = Zeroconf.Zeroconf()
         tivos = self.find_tivos()
         if target in tivos:
             name, prop = tivos[target]
@@ -121,6 +127,9 @@ class ZCBroadcast:
 
     def shutdown(self):
         self.rz.unregisterService(self.info)
+        self.stop()
+
+    def stop(self):
         self.rz.close()
 
     def get_address(self, host):
@@ -237,10 +246,11 @@ def parse_cmdline(params):
     host, port = DEFAULT_HOST
     use_zc = have_zc
     verbose = False
+    tlist = False
 
     try:
-        opts, t_address = getopt.getopt(params, 'a:p:zvh', ['address=',
-                                        'port=', 'nozeroconf',
+        opts, t_address = getopt.getopt(params, 'a:p:lzvh', ['address=',
+                                        'port=', 'list', 'nozeroconf',
                                         'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
@@ -250,6 +260,8 @@ def parse_cmdline(params):
             host = value
         elif opt in ('-p', '--port'):
             port = int(value)
+        elif opt in ('-l', '--list'):
+            tlist = True
         elif opt in ('-z', '--nozeroconf'):
             use_zc = False
         elif opt in ('-v', '--verbose'):
@@ -258,6 +270,9 @@ def parse_cmdline(params):
             print __doc__
             sys.exit()
 
+    if tlist:
+        return (), (), True, verbose, tlist
+
     t_address = t_address[0]
     if ':' in t_address:
         t_address, t_port = address.split(':')
@@ -265,7 +280,7 @@ def parse_cmdline(params):
     else:
         t_port = DEFAULT_HOST[1]
 
-    return (t_address, t_port), (host, port), use_zc, verbose
+    return (t_address, t_port), (host, port), use_zc, verbose, tlist
 
 def proxy(target, host_port=DEFAULT_HOST, use_zc=True, verbose=False):
     queue = Queue()
@@ -274,16 +289,32 @@ def proxy(target, host_port=DEFAULT_HOST, use_zc=True, verbose=False):
     thread.start_new_thread(process_queue, (tivo, queue, verbose))
     thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
     if use_zc:
-        zc = ZCBroadcast(target, host_port)
+        zc = ZCBroadcast()
+        zc.start(target, host_port)
     serve(queue, listeners, host_port)
     if use_zc:
         zc.shutdown()
     cleanup(tivo, queue, listeners)
+
+def scan(verbose):
+    zc = ZCBroadcast()
+    tivos = zc.find_tivos()
+    zc.stop()
+    for key, data in tivos.items():
+        name, prop = data
+        print '%s:%d -' % key, name
+        if verbose:
+            for pkey, pdata in prop.items():
+                print ' %s: %s' % (pkey, pdata)
+            print
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    target, host_port, use_zc, verbose = parse_cmdline(sys.argv[1:])
-    proxy(target, host_port, use_zc, verbose)
+    target, host_port, use_zc, verbose, tlist = parse_cmdline(sys.argv[1:])
+    if tlist:
+        scan(verbose)
+    else:
+        proxy(target, host_port, use_zc, verbose)
