@@ -333,8 +333,7 @@ def choose(tivos):
         print '%s:%d -' % key, name
         i += 1
     choice = raw_input('Connect to which? ')
-    if choice in choices:
-        return choices[choice]
+    return choices.get(choice)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
