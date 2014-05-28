@@ -86,11 +86,11 @@ class ZCListener:
 class ZCBroadcast:
     def __init__(self):
         self.rz = Zeroconf.Zeroconf()
+        self.info = None
 
-    def start(self, target, addr):
+    def announce(self, target, addr, tivos):
         host, port = addr
         host_ip = self.get_address(host)
-        tivos = self.find_tivos()
         if target in tivos:
             name, prop = tivos[target]
         else:
@@ -148,10 +148,8 @@ class ZCBroadcast:
         return tivos
 
     def shutdown(self):
-        self.rz.unregisterService(self.info)
-        self.stop()
-
-    def stop(self):
+        if self.info:
+            self.rz.unregisterService(self.info)
         self.rz.close()
 
     def get_address(self, host):
@@ -307,28 +305,16 @@ def parse_cmdline(params):
 
     return (t_address, t_port), (host, port), use_zc, verbose, tlist, tselect
 
-def proxy(target, host_port=DEFAULT_HOST, use_zc=True, verbose=False):
+def proxy(target, host_port=DEFAULT_HOST, verbose=False):
     queue = Queue()
     listeners = []
     tivo = connect(target)
     thread.start_new_thread(process_queue, (tivo, queue, verbose))
     thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
-    if use_zc:
-        zc = ZCBroadcast()
-        zc.start(target, host_port)
     serve(queue, listeners, host_port)
-    if use_zc:
-        zc.shutdown()
     cleanup(tivo, queue, listeners)
 
-def scan(verbose):
-    try:
-        zc = ZCBroadcast()
-    except:
-        sys.stderr.write('-l requires Zeroconf\n')
-        sys.exit(1)
-    tivos = zc.find_tivos(True)
-    zc.stop()
+def dump(tivos, verbose):
     for key, data in tivos.items():
         name, prop = data
         print '%s:%d -' % key, name
@@ -337,14 +323,7 @@ def scan(verbose):
                 print ' %s: %s' % (pkey, pdata)
             print
 
-def choose(host_port, verbose):
-    try:
-        zc = ZCBroadcast()
-    except:
-        sys.stderr.write('-i requires Zeroconf\n')
-        sys.exit(1)
-    tivos = zc.find_tivos()
-    zc.stop()
+def choose(tivos):
     choices = {}
     i = 1
     for key, data in tivos.items():
@@ -355,7 +334,7 @@ def choose(host_port, verbose):
         i += 1
     choice = raw_input('Connect to which? ')
     if choice in choices:
-        proxy(choices[choice], host_port, True, verbose)
+        return choices[choice]
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -364,9 +343,26 @@ if __name__ == '__main__':
 
     (target, host_port, use_zc,
      verbose, tlist, tselect) = parse_cmdline(sys.argv[1:])
-    if tselect:
-        choose(host_port, verbose)
-    elif tlist:
-        scan(verbose)
-    else:
-        proxy(target, host_port, use_zc, verbose)
+
+    if use_zc:
+        try:
+            zc = ZCBroadcast()
+        except:
+            use_zc = False
+        tivos = zc.find_tivos(tlist)
+
+    if (tlist or tselect) and not use_zc:
+        sys.stderr.write('-i and -l require Zeroconf\n')
+        sys.exit(1)
+
+    if tlist:
+        target = dump(tivos, verbose)
+    elif tselect:
+        target = choose(tivos)
+
+    if target:
+        zc.announce(target, host_port, tivos)
+        proxy(target, host_port, verbose)
+
+    if use_zc:
+        zc.shutdown()
