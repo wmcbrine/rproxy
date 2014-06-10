@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Remote Proxy for TiVo, v0.3
+# Remote Proxy for TiVo, v0.4
 # Copyright 2014 William McBrine
 #
 # This program is free software; you can redistribute it and/or
@@ -48,12 +48,12 @@
     <address>          Any other command-line option is treated as the IP
                        address (with optional port number) of the TiVo to
                        connect to. This is a required parameter, except
-                       with -l or -h.
+                       with -l, -i or -h.
 
 """
 
 __author__ = 'William McBrine <wmcbrine@gmail.com>'
-__version__ = '0.3'
+__version__ = '0.4'
 __license__ = 'GPL'
 
 import getopt

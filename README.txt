@@ -1,34 +1,26 @@
-Remote Proxy for TiVo, v0.3
+Remote Proxy for TiVo, v0.4
 by William McBrine <wmcbrine@gmail.com>
-May 26, 2014
+June 10, 2014
 
-This is a very simple server that connects to the "Crestron" interface 
-(port 31339) on a Series 3 or later TiVo, and reflects the port back 
-out, allowing multiple simultaneous connections. (The TiVo itself only 
-allows one connection to the remote service at a time.) Commands are 
-queued from all sources, and sent to the TiVo no more often than once 
-every tenth of a second, to avoid crashing the TiVo. Status responses 
-are sent back to all connected clients. In other words, it makes the 
-remote control service work the way the spec PDF already says that it's 
-supposed to. :) You also have the option of monitoring the commands and 
-responses on the console. And you can run it on a non-standard port, if 
-your remote control program supports that. (Example use: run proxies for 
-multiple TiVos on the same machine, using a different port for each.)
+This is a server that connects to the "Crestron" interface (port 31339) 
+on a Series 3 or later TiVo, and reflects the port back out, allowing 
+multiple simultaneous client connections. (The TiVo itself only allows 
+one connection to the remote service at a time.) It queues commands from 
+all sources, and sends them to the TiVo no more than once every tenth of 
+a second, to avoid crashing the TiVo; and it sends status responses back 
+to all connected clients. You can also monitor commands and responses on 
+the console. And you can run it on a non-standard port, if your remote 
+control program supports that. (Example use: run proxies for multiple 
+TiVos on the same machine, using a different port for each.)
 
-Note that this only supports the original port 31339 interface, not the 
-more advanced interface used by TiVo's own iOS and Android apps, as well 
-as by KMTTG. But most third-party apps use the older interface. To use 
-the proxy, you must of course first enable the interface on the TiVo, 
-and you need one or more appropriate remote apps. By itself, the proxy 
-does nothing. (I assume anyone trying this program is already a user of 
-remote control apps for the TiVo, and knows why they want it.)
+Note that rproxy only supports the port 31339 interface, not the more 
+advanced interface used by TiVo's own iOS and Android apps and KMTTG. 
+But most third-party apps use this older interface. To use rproxy, you 
+must first enable the interface on the TiVo, and you need one or more 
+appropriate remote apps, such as my Network Remote.
 
-Currently the proxy doesn't announce itself, so you have to enter its 
-address (i.e. the address of the computer where it's running) into the 
-remote app(s) manually.
-
-Like my other TiVo apps, this program relies on Python 2.x (standard 
-with OS X and Linux, otherwise available from http://python.org/ .)
+Like my other TiVo apps, rproxy relies on Python 2.x (standard with OS X 
+and Linux, otherwise available from http://python.org/ .)
 
 Remote Proxy was inspired by this TCF thread:
 
@@ -42,36 +34,50 @@ From a command line:
 
   python rproxy.py <your.tivo.ip.here>
 
-(Assuming you already have Python installed, the TiVo's remote service 
-active, etc.) When done: Ctrl-C (or just close it). Actual example:
+Or, you can skip the IP address, and specify "-i" to make rproxy scan 
+the network for TiVos and provide a list.
 
-  python rproxy.py 192.168.1.73
-
-(or just ./rproxy.py <ip> on *nix)
+When you're done proxying: Ctrl-C (or just close the command window).
 
 
 Command-Line Options
 --------------------
 
--a, --address     Specify the address to serve from. The default is
-                  '' (bind to all interfaces).
+-a, --address      Specify the address to serve from. The default is
+                   '' (bind to all interfaces).
 
--p, --port        Specify the port to serve from. The default is
-                  31339, the standard TiVo "Crestron" remote port.
+-p, --port         Specify the port to serve from. The default is
+                   31339, the standard TiVo "Crestron" remote port.
 
--z, --nozeroconf  Disable Zeroconf announcements.
+-l, --list         List TiVos found on the network, and exit.
 
--v, --verbose     Echo messages to and from the TiVo to the console.
+-i, --interactive  List TiVos found, and prompt which to connect to.
 
--h, --help        Print help and exit.
+-z, --nozeroconf   Disable Zeroconf announcements.
 
-<address>         Any other command-line option is treated as the IP
-                  address (with optional port number) of the TiVo to
-                  connect to. This is a required parameter.
+-v, --verbose      Echo messages to and from the TiVo to the console.
+                   (In combination with -l, show extended details.)
+
+-h, --help         Print help and exit.
+
+<address>          Any other command-line option is treated as the IP
+                   address (with optional port number) of the TiVo to
+                   connect to. This is a required parameter, except
+                   with -l, -i or -h.
 
 
 Changes
 -------
+
+0.4 --  Automatic discovery of TiVos, via the interactive (-i) and list
+        (-l) options, so you don't need to know your TiVo's address
+        beforehand. Already-proxied TiVos are recognized, and excluded
+        from the interactive menu. Note that (unlike my Network Remote)
+        this uses Zeroconf exclusively.
+
+        In the event that the properties of the connected TiVo aren't
+        available (perhaps due to Zeroconf failure), rproxy now provides
+        a more complete set of phony details in its own announcements.
 
 0.3  -- Announce the service via Zeroconf, making it auto-discoverable. 
         (It appears as "Proxy(tivoname)".) Can be suppressed via -z, or 
