@@ -39,7 +39,7 @@
     -i, --interactive  List TiVos found, and prompt which to connect to.
 
     -f, --first        Scan the network and connect to the first available
-                       TiVo.
+                       TiVo. Ignores proxies.
 
     -z, --nozeroconf   Disable Zeroconf announcements.
 
@@ -76,6 +76,8 @@ except:
 DEFAULT_HOST = ('', 31339)
 SERVICE = '_tivo-remote._tcp.local.'
 
+# Target modes
+
 _TFIRST = 1
 _TLIST = 2
 _TSELECT = 3
@@ -96,6 +98,7 @@ class ZCBroadcast:
         self.info = None
 
     def announce(self, target, addr, tivos):
+        """ Announce the availability of our service. """
         host, port = addr
         host_ip = self.get_address(host)
         if target in tivos:
@@ -155,6 +158,7 @@ class ZCBroadcast:
         return tivos
 
     def shutdown(self):
+        """ Out of service. """
         if self.info:
             self.rz.unregisterService(self.info)
         self.rz.close()
@@ -241,7 +245,11 @@ def serve(queue, listeners, host_port):
 
     """
     server = socket.socket()
-    server.bind(host_port)
+    try:
+        server.bind(host_port)
+    except:
+        sys.stderr.write('Port %d already in use\n' % host_port[1])
+        return
     server.listen(5)
 
     try:
@@ -265,6 +273,78 @@ def cleanup(tivo, queue, listeners):
 
     queue.put(('', ''))
 
+def proxy(target, host_port=DEFAULT_HOST, verbose=False):
+    """ Core function. """
+    queue = Queue()
+    listeners = []
+    tivo = connect(target)
+    thread.start_new_thread(process_queue, (tivo, queue, verbose))
+    thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
+    serve(queue, listeners, host_port)
+    cleanup(tivo, queue, listeners)
+
+def dump(tivos, verbose):
+    """ List TiVos found and exit. """
+    for key, data in tivos.items():
+        name, prop = data
+        print '%s:%d -' % key, name
+        if verbose:
+            for pkey, pdata in prop.items():
+                print ' %s: %s' % (pkey, pdata)
+            print
+
+def choose(tivos):
+    """ List TiVos found, and allow user to choose one. """
+    choices = {}
+    i = 1
+    for key, data in tivos.items():
+        choices[str(i)] = key
+        name, prop = data
+        print '%d.' % i,
+        print '%s:%d -' % key, name
+        i += 1
+    choice = raw_input('Connect to which? ')
+    return choices.get(choice)
+
+def by_name(tivos, target):
+    """ Find a TiVo by its name or TSN. """
+    names = {}
+    for key, data in tivos.items():
+        name, prop = data
+        names[name] = key
+        try:
+            names[prop['TSN']] = key
+        except:
+            pass
+    return names.get(target)
+
+def get_target(tivos, target, tmode, verbose):
+    """ Find the address/port pair (or don't), depending on the target
+        mode selected by the options.
+
+    """
+    if tmode == _TLIST:
+        return dump(tivos, verbose)
+    elif tmode == _TSELECT:
+        return choose(tivos)
+    elif tmode == _TFIRST:
+        for address, data in tivos.items():
+            if not data[0].startswith('Proxy('):
+                return address
+        sys.stderr.write('No TiVos available\n')
+        return None
+
+    address = by_name(tivos, target)
+    if address:
+        return address
+
+    if ':' in target:
+        target, t_port = target.split(':')
+        t_port = int(t_port)
+    else:
+        t_port = DEFAULT_HOST[1]
+    return (target, t_port)
+
 def parse_cmdline(params):
     """ Parse the command-line options, and return tuples for host and
         target addresses, plus the verbose flag.
@@ -276,10 +356,10 @@ def parse_cmdline(params):
     tmode = None
 
     try:
-        opts, target = getopt.getopt(params, 'a:p:lifzvh', ['address=',
-                                     'port=', 'list', 'interactive',
-                                     'first', 'nozeroconf',
-                                     'verbose', 'help'])
+        opts, targets = getopt.getopt(params, 'a:p:lifzvh', ['address=',
+                                      'port=', 'list', 'interactive',
+                                      'first', 'nozeroconf',
+                                      'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
         sys.exit(1)
@@ -303,82 +383,20 @@ def parse_cmdline(params):
             print __doc__
             sys.exit()
 
-    if not tmode:
-        target = target[0]
+    if tmode and not use_zc:
+        sys.stderr.write('-i, -l and -f require Zeroconf\n')
+        sys.exit(1)
 
-    return target, (host, port), use_zc, verbose, tmode
-
-def proxy(target, host_port=DEFAULT_HOST, verbose=False):
-    queue = Queue()
-    listeners = []
-    tivo = connect(target)
-    thread.start_new_thread(process_queue, (tivo, queue, verbose))
-    thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
-    serve(queue, listeners, host_port)
-    cleanup(tivo, queue, listeners)
-
-def dump(tivos, verbose):
-    for key, data in tivos.items():
-        name, prop = data
-        print '%s:%d -' % key, name
-        if verbose:
-            for pkey, pdata in prop.items():
-                print ' %s: %s' % (pkey, pdata)
-            print
-
-def choose(tivos):
-    choices = {}
-    i = 1
-    for key, data in tivos.items():
-        choices[str(i)] = key
-        name, prop = data
-        print '%d.' % i,
-        print '%s:%d -' % key, name
-        i += 1
-    choice = raw_input('Connect to which? ')
-    return choices.get(choice)
-
-def by_name(tivos, target):
-    names = {}
-    for key, data in tivos.items():
-        name, prop = data
-        names[name] = key
-        try:
-            names[prop['TSN']] = key
-        except:
-            pass
-    return names.get(target)
-
-def get_target(tivos, target, tmode, verbose):
-    if tmode == _TLIST:
-        return dump(tivos, verbose)
-    elif tmode == _TSELECT:
-        return choose(tivos)
-    elif tmode == _TFIRST:
-        for address, data in tivos.items():
-            if not data[0].startswith('Proxy('):
-                return address
-
-    address = by_name(tivos, target)
-    if address:
-        return address
-
-    if ':' in target:
-        target, t_port = target.split(':')
-        t_port = int(t_port)
-    else:
-        t_port = DEFAULT_HOST[1]
-    return (target, t_port)
-
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
+    if not tmode and not targets:
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
+    return targets, (host, port), use_zc, verbose, tmode
+
+def main(argv):
     tivos = {}
 
-    (target, host_port, use_zc,
-     verbose, tmode) = parse_cmdline(sys.argv[1:])
+    targets, host_port, use_zc, verbose, tmode = parse_cmdline(argv)
 
     if use_zc:
         try:
@@ -388,10 +406,10 @@ if __name__ == '__main__':
         if use_zc:
             tivos = zc.find_tivos(tmode == _TLIST)
 
-    if tmode and not use_zc:
-        sys.stderr.write('-i, -l and -f require Zeroconf\n')
-        sys.exit(1)
-
+    try:
+        target = targets[0]
+    except:
+        target = None
     target = get_target(tivos, target, tmode, verbose)
 
     if target:
@@ -401,3 +419,6 @@ if __name__ == '__main__':
 
     if use_zc:
         zc.shutdown()
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

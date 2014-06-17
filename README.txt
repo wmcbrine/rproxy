@@ -1,6 +1,6 @@
-Remote Proxy for TiVo, v0.4
+Remote Proxy for TiVo, v0.5
 by William McBrine <wmcbrine@gmail.com>
-June 10, 2014
+June 17, 2014
 
 This is a server that connects to the "Crestron" interface (port 31339) 
 on a Series 3 or later TiVo, and reflects the port back out, allowing 
@@ -53,6 +53,9 @@ Command-Line Options
 
 -i, --interactive  List TiVos found, and prompt which to connect to.
 
+-f, --first        Scan the network and connect to the first available
+                   TiVo. Ignores proxies.
+
 -z, --nozeroconf   Disable Zeroconf announcements.
 
 -v, --verbose      Echo messages to and from the TiVo to the console.
@@ -60,14 +63,30 @@ Command-Line Options
 
 -h, --help         Print help and exit.
 
-<address>          Any other command-line option is treated as the IP
-                   address (with optional port number) of the TiVo to
-                   connect to. This is a required parameter, except
-                   with -l, -i or -h.
+<address>          Any other command-line option is treated as the name,
+                   TiVo Service Number, or IP address (with optional
+                   port number) of the TiVo to connect to. This is a
+                   required parameter, except with -l, -i, -f or -h.
 
 
 Changes
 -------
+
+0.5 --  TiVos can now be specified on the command line by name (i.e. the
+        display name, as seen in the "My Shows" list, or via -l -- not
+        to be confused with the DNS name, which also works), or by TiVo
+        Service Number, as well as by IP. Based on a suggestion by
+        "telemark".
+
+        New option "-f" (or "--first") to do a scan and connect to the
+        first TiVo found. For the many single-TiVo networks out there.
+        This will skip over both already-proxied TiVos (as with -i), but
+        also the proxies themselves.
+
+        Specifying the port on the command line via colon notation (i.e.
+        "tivoip:31339") was actually broken since 0.2.
+
+        Better reporting of various error conditions.
 
 0.4 --  Automatic discovery of TiVos, via the interactive (-i) and list
         (-l) options, so you don't need to know your TiVo's address
