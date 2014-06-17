@@ -38,9 +38,6 @@
 
     -i, --interactive  List TiVos found, and prompt which to connect to.
 
-    -b, --byname       Connect to a TiVo by its name (the name shown by -l,
-                       not the domain name) or by its TiVo Service Number.
-
     -f, --first        Scan the network and connect to the first available
                        TiVo.
 
@@ -51,10 +48,10 @@
 
     -h, --help         Print help and exit.
 
-    <address>          Any other command-line option is treated as the IP
-                       address (with optional port number) of the TiVo to
-                       connect to. This is a required parameter, except
-                       with -l, -i or -h.
+    <address>          Any other command-line option is treated as the name,
+                       TiVo Service Number, or IP address (with optional
+                       port number) of the TiVo to connect to. This is a
+                       required parameter, except with -l, -i, -f or -h.
 
 """
 
@@ -82,7 +79,6 @@ SERVICE = '_tivo-remote._tcp.local.'
 _TFIRST = 1
 _TLIST = 2
 _TSELECT = 3
-_TNAME = 4
 
 class ZCListener:
     def __init__(self, names):
@@ -280,9 +276,9 @@ def parse_cmdline(params):
     tmode = None
 
     try:
-        opts, target = getopt.getopt(params, 'a:p:lib:fzvh', ['address=',
+        opts, target = getopt.getopt(params, 'a:p:lifzvh', ['address=',
                                      'port=', 'list', 'interactive',
-                                     'byname', 'first', 'nozeroconf',
+                                     'first', 'nozeroconf',
                                      'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
@@ -297,9 +293,6 @@ def parse_cmdline(params):
             tmode = _TLIST
         elif opt in ('-i', '--interactive'):
             tmode = _TSELECT
-        elif opt in ('-b', '--byname'):
-            target = value
-            tmode = _TNAME
         elif opt in ('-f', '--first'):
             tmode = _TFIRST
         elif opt in ('-z', '--nozeroconf'):
@@ -361,10 +354,12 @@ def get_target(tivos, target, tmode, verbose):
         return dump(tivos, verbose)
     elif tmode == _TSELECT:
         return choose(tivos)
-    elif tmode == _TNAME:
-        return by_name(tivos, target)
     elif tmode == _TFIRST:
         return tivos.items()[0][0]
+
+    address = by_name(tivos, target)
+    if address:
+        return address
 
     if ':' in target:
         target, t_port = target.split(':')
@@ -378,6 +373,8 @@ if __name__ == '__main__':
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
+    tivos = {}
+
     (target, host_port, use_zc,
      verbose, tmode) = parse_cmdline(sys.argv[1:])
 
@@ -386,16 +383,18 @@ if __name__ == '__main__':
             zc = ZCBroadcast()
         except:
             use_zc = False
-        tivos = zc.find_tivos(tmode == _TLIST)
+        if use_zc:
+            tivos = zc.find_tivos(tmode == _TLIST)
 
     if tmode and not use_zc:
-        sys.stderr.write('-i, -l, -b and -f require Zeroconf\n')
+        sys.stderr.write('-i, -l and -f require Zeroconf\n')
         sys.exit(1)
 
     target = get_target(tivos, target, tmode, verbose)
 
     if target:
-        zc.announce(target, host_port, tivos)
+        if use_zc:
+            zc.announce(target, host_port, tivos)
         proxy(target, host_port, verbose)
 
     if use_zc:
