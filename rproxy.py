@@ -73,6 +73,11 @@ except:
 DEFAULT_HOST = ('', 31339)
 SERVICE = '_tivo-remote._tcp.local.'
 
+_TFIRST = 1
+_TLIST = 2
+_TSELECT = 3
+_TNAME = 4
+
 class ZCListener:
     def __init__(self, names):
         self.names = names
@@ -266,13 +271,12 @@ def parse_cmdline(params):
     host, port = DEFAULT_HOST
     use_zc = have_zc
     verbose = False
-    tlist = False
-    tselect = False
+    tmode = None
 
     try:
-        opts, t_address = getopt.getopt(params, 'a:p:lizvh', ['address=',
-                                        'port=', 'list', 'interactive',
-                                        'nozeroconf', 'verbose', 'help'])
+        opts, target = getopt.getopt(params, 'a:p:lizvh', ['address=',
+                                     'port=', 'list', 'interactive',
+                                     'nozeroconf', 'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
 
@@ -282,9 +286,9 @@ def parse_cmdline(params):
         elif opt in ('-p', '--port'):
             port = int(value)
         elif opt in ('-l', '--list'):
-            tlist = True
+            tmode = _TLIST
         elif opt in ('-i', '--interactive'):
-            tselect = True
+            tmode = _TSELECT
         elif opt in ('-z', '--nozeroconf'):
             use_zc = False
         elif opt in ('-v', '--verbose'):
@@ -293,17 +297,10 @@ def parse_cmdline(params):
             print __doc__
             sys.exit()
 
-    if tlist or tselect:
-        return (), (host, port), True, verbose, tlist, tselect
+    if not tmode:
+        target = target[0]
 
-    t_address = t_address[0]
-    if ':' in t_address:
-        t_address, t_port = address.split(':')
-        t_port = int(t_port)
-    else:
-        t_port = DEFAULT_HOST[1]
-
-    return (t_address, t_port), (host, port), use_zc, verbose, tlist, tselect
+    return target, (host, port), use_zc, verbose, tmode
 
 def proxy(target, host_port=DEFAULT_HOST, verbose=False):
     queue = Queue()
@@ -335,29 +332,54 @@ def choose(tivos):
     choice = raw_input('Connect to which? ')
     return choices.get(choice)
 
+def by_name(tivos, target):
+    names = {}
+    for key, data in tivos.items():
+        name, prop = data
+        names[name] = key
+        try:
+            names[prop['TSN']] = key
+        except:
+            pass
+    return names.get(target)
+
+def get_target(tivos, target, tmode, verbose):
+    if tmode == _TLIST:
+        return dump(tivos, verbose)
+    elif tmode == _TSELECT:
+        return choose(tivos)
+    elif tmode == _TNAME:
+        return by_name(tivos, target)
+    elif tmode == _TFIRST:
+        return tivos.items[0][0]
+
+    if ':' in target:
+        target, t_port = target.split(':')
+        t_port = int(t_port)
+    else:
+        t_port = DEFAULT_HOST[1]
+    return (target, t_port)
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
     (target, host_port, use_zc,
-     verbose, tlist, tselect) = parse_cmdline(sys.argv[1:])
+     verbose, tmode) = parse_cmdline(sys.argv[1:])
 
     if use_zc:
         try:
             zc = ZCBroadcast()
         except:
             use_zc = False
-        tivos = zc.find_tivos(tlist)
+        tivos = zc.find_tivos(tmode == _TLIST)
 
-    if (tlist or tselect) and not use_zc:
+    if tmode and not use_zc:
         sys.stderr.write('-i and -l require Zeroconf\n')
         sys.exit(1)
 
-    if tlist:
-        target = dump(tivos, verbose)
-    elif tselect:
-        target = choose(tivos)
+    target = get_target(tivos, target, tmode, verbose)
 
     if target:
         zc.announce(target, host_port, tivos)
