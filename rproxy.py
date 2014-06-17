@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Remote Proxy for TiVo, v0.4
+# Remote Proxy for TiVo, v0.5
 # Copyright 2014 William McBrine
 #
 # This program is free software; you can redistribute it and/or
@@ -38,6 +38,12 @@
 
     -i, --interactive  List TiVos found, and prompt which to connect to.
 
+    -b, --byname       Connect to a TiVo by its name (the name shown by -l,
+                       not the domain name) or by its TiVo Service Number.
+
+    -f, --first        Scan the network and connect to the first available
+                       TiVo.
+
     -z, --nozeroconf   Disable Zeroconf announcements.
 
     -v, --verbose      Echo messages to and from the TiVo to the console.
@@ -53,7 +59,7 @@
 """
 
 __author__ = 'William McBrine <wmcbrine@gmail.com>'
-__version__ = '0.4'
+__version__ = '0.5'
 __license__ = 'GPL'
 
 import getopt
@@ -274,11 +280,13 @@ def parse_cmdline(params):
     tmode = None
 
     try:
-        opts, target = getopt.getopt(params, 'a:p:lizvh', ['address=',
+        opts, target = getopt.getopt(params, 'a:p:lib:fzvh', ['address=',
                                      'port=', 'list', 'interactive',
-                                     'nozeroconf', 'verbose', 'help'])
+                                     'byname', 'first', 'nozeroconf',
+                                     'verbose', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
+        sys.exit(1)
 
     for opt, value in opts:
         if opt in ('-a', '--address'):
@@ -289,6 +297,11 @@ def parse_cmdline(params):
             tmode = _TLIST
         elif opt in ('-i', '--interactive'):
             tmode = _TSELECT
+        elif opt in ('-b', '--byname'):
+            target = value
+            tmode = _TNAME
+        elif opt in ('-f', '--first'):
+            tmode = _TFIRST
         elif opt in ('-z', '--nozeroconf'):
             use_zc = False
         elif opt in ('-v', '--verbose'):
@@ -351,7 +364,7 @@ def get_target(tivos, target, tmode, verbose):
     elif tmode == _TNAME:
         return by_name(tivos, target)
     elif tmode == _TFIRST:
-        return tivos.items[0][0]
+        return tivos.items()[0][0]
 
     if ':' in target:
         target, t_port = target.split(':')
@@ -376,7 +389,7 @@ if __name__ == '__main__':
         tivos = zc.find_tivos(tmode == _TLIST)
 
     if tmode and not use_zc:
-        sys.stderr.write('-i and -l require Zeroconf\n')
+        sys.stderr.write('-i, -l, -b and -f require Zeroconf\n')
         sys.exit(1)
 
     target = get_target(tivos, target, tmode, verbose)
