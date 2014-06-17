@@ -355,7 +355,9 @@ def get_target(tivos, target, tmode, verbose):
     elif tmode == _TSELECT:
         return choose(tivos)
     elif tmode == _TFIRST:
-        return tivos.items()[0][0]
+        for address, data in tivos.items():
+            if not data[0].startswith('Proxy('):
+                return address
 
     address = by_name(tivos, target)
     if address:
