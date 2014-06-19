@@ -69,7 +69,7 @@ from Queue import Queue
 
 have_zc = True
 try:
-    import Zeroconf
+    import zeroconf
 except:
     have_zc = False
 
@@ -94,7 +94,7 @@ class ZCListener:
 
 class ZCBroadcast:
     def __init__(self):
-        self.rz = Zeroconf.Zeroconf()
+        self.rz = zeroconf.Zeroconf()
         self.info = None
 
     def announce(self, target, addr, tivos):
@@ -110,7 +110,7 @@ class ZCBroadcast:
                     'platform': 'tcd/Series3'}
         name = 'Proxy(%s)' % name
 
-        self.info = Zeroconf.ServiceInfo(SERVICE, '%s.%s' % (name, SERVICE),
+        self.info = zeroconf.ServiceInfo(SERVICE, '%s.%s' % (name, SERVICE),
                                          host_ip, port, 0, 0, prop)
         self.rz.registerService(self.info)
 
@@ -120,7 +120,7 @@ class ZCBroadcast:
         tivo_names = []
 
         try:
-            browser = Zeroconf.ServiceBrowser(self.rz, SERVICE,
+            browser = zeroconf.ServiceBrowser(self.rz, SERVICE,
                                               ZCListener(tivo_names))
         except:
             return tivos
