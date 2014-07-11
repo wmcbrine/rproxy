@@ -170,118 +170,121 @@ class ZCBroadcast:
             host = s.getsockname()[0]
         return socket.inet_aton(host)
 
-def process_queue(tivo, queue, verbose):
-    """ Pop commands from the queue and send them to the TiVo. Wait
-        100ms between messages to avoid a bit jam.
+class Proxy:
+    def __init__(self, target, host_port=DEFAULT_HOST, verbose=False):
+        self.queue = Queue()
+        self.listeners = []
+        self.target = target
+        self.verbose = verbose
+        self.host_port = host_port
+        self.tivo = self.connect()
+        thread.start_new_thread(self.process_queue, ())
+        thread.start_new_thread(self.status_update, ())
+        self.serve()
+        self.cleanup()
 
-    """
-    while True:
-        msg, address = queue.get()
-        if verbose:
-            sys.stderr.write('%s: %s\n' % (address, msg))
-        try:
-            tivo.sendall(msg)
-        except:
-            break
-        time.sleep(0.1)
+    def process_queue(self):
+        """ Pop commands from the queue and send them to the TiVo. Wait
+            100ms between messages to avoid a bit jam.
 
-def read_client(queue, client, address):
-    """ Read commands from a client remote control program, and put them
-        in the queue. Run until the client disconnects.
-
-    """
-    while True:
-        try:
-            msg = client.recv(1024)
-        except:
-            break
-        if not msg:
-            break
-        queue.put((msg, address))
-    try:
-        client.close()
-    except:
-        pass
-
-def status_update(tivo, listeners, address, verbose):
-    """ Read status response messages from the TiVo, and send them to
-        each connected client.
-
-    """
-    while True:
-        try:
-            status = tivo.recv(1024)
-        except:
-            status = ''
-        if not status:
-            try:
-                tivo.close()
-            except:
-                pass
-            break
-        if verbose:
-            sys.stderr.write('%s: %s\n' % (address, status))
-        for l in listeners[:]:
-            try:
-                l.sendall(status)
-            except:
-                listeners.remove(l)
-
-def connect(target):
-    """ Connect to the target TiVo within five seconds, or abort. """
-    try:
-        tivo = socket.socket()
-        tivo.settimeout(5)
-        tivo.connect(target)
-        tivo.settimeout(None)
-    except:
-        raise
-    return tivo
-
-def serve(queue, listeners, host_port):
-    """ Listen for connections from client remote control programs;
-        start new read_client() threads and add listeners as needed.
-        Serve until KeyboardInterrupt.
-
-    """
-    server = socket.socket()
-    try:
-        server.bind(host_port)
-    except:
-        sys.stderr.write('Port %d already in use\n' % host_port[1])
-        return
-    server.listen(5)
-
-    try:
+        """
         while True:
-            client, address = server.accept()
-            listeners.append(client)
-            thread.start_new_thread(read_client, (queue, client, address))
-    except KeyboardInterrupt:
-        pass
+            msg, address = self.queue.get()
+            if self.verbose:
+                sys.stderr.write('%s: %s\n' % (address, msg))
+            try:
+                self.tivo.sendall(msg)
+            except:
+                break
+            time.sleep(0.1)
 
-def cleanup(tivo, queue, listeners):
-    """ Close all sockets, and push one last message to make the
-        process_queue() thread exit.
+    def read_client(self, client, address):
+        """ Read commands from a client remote control program, and put them
+            in the queue. Run until the client disconnects.
 
-    """
-    for l in [tivo] + listeners:
+        """
+        while True:
+            try:
+                msg = client.recv(1024)
+            except:
+                break
+            if not msg:
+                break
+            self.queue.put((msg, address))
         try:
-            l.close()
+            client.close()
         except:
             pass
 
-    queue.put(('', ''))
+    def status_update(self):
+        """ Read status response messages from the TiVo, and send them to
+            each connected client.
 
-def proxy(target, host_port=DEFAULT_HOST, verbose=False):
-    """ Core function. """
-    queue = Queue()
-    listeners = []
-    tivo = connect(target)
-    thread.start_new_thread(process_queue, (tivo, queue, verbose))
-    thread.start_new_thread(status_update, (tivo, listeners, target, verbose))
-    serve(queue, listeners, host_port)
-    cleanup(tivo, queue, listeners)
+        """
+        while True:
+            try:
+                status = self.tivo.recv(1024)
+            except:
+                status = ''
+            if not status:
+                try:
+                    self.tivo.close()
+                except:
+                    pass
+                break
+            if self.verbose:
+                sys.stderr.write('%s: %s\n' % (self.target, status))
+            for l in self.listeners[:]:
+                try:
+                    l.sendall(status)
+                except:
+                    self.listeners.remove(l)
+
+    def connect(self):
+        """ Connect to the target TiVo within five seconds, or abort. """
+        try:
+            tivo = socket.socket()
+            tivo.settimeout(5)
+            tivo.connect(self.target)
+            tivo.settimeout(None)
+        except:
+            raise
+        return tivo
+
+    def serve(self):
+        """ Listen for connections from client remote control programs;
+            start new read_client() threads and add listeners as needed.
+            Serve until KeyboardInterrupt.
+
+        """
+        server = socket.socket()
+        try:
+            server.bind(self.host_port)
+        except:
+            sys.stderr.write('Port %d already in use\n' % self.host_port[1])
+            return
+        server.listen(5)
+
+        try:
+            while True:
+                client, address = server.accept()
+                self.listeners.append(client)
+                thread.start_new_thread(self.read_client, (client, address))
+        except KeyboardInterrupt:
+            pass
+
+    def cleanup(self):
+        """ Close all sockets, and push one last message to make the
+            process_queue() thread exit.
+
+        """
+        for l in [self.tivo] + self.listeners:
+            try:
+                l.close()
+            except:
+                pass
+
+        self.queue.put(('', ''))
 
 def dump(tivos, verbose):
     """ List TiVos found and exit. """
@@ -415,7 +418,7 @@ def main(argv):
     if target:
         if use_zc:
             zc.announce(target, host_port, tivos)
-        proxy(target, host_port, verbose)
+        Proxy(target, host_port, verbose)
 
     if use_zc:
         zc.shutdown()
