@@ -178,7 +178,7 @@ class Proxy:
         self.target = target
         self.verbose = verbose
         self.host_port = host_port
-        self.reconnect = False
+        self.reconnect = True
         self.connect()
         thread.start_new_thread(self.process_queue, ())
         self.serve()
@@ -209,10 +209,14 @@ class Proxy:
             in the queue. Run until the client disconnects.
 
         """
+        if self.verbose:
+            sys.stderr.write('Client connection from %s, port %d\n' % address)
         while True:
             try:
                 msg = client.recv(1024)
-            except:
+            except Exception, err:
+                if self.verbose:
+                    sys.stderr.write('%s\n' % str(err))
                 break
             if not msg:
                 break
@@ -221,6 +225,8 @@ class Proxy:
             client.close()
         except:
             pass
+        if self.verbose:
+            sys.stderr.write('Client at %s, port %d disconnected\n' % address)
 
     def status_update(self):
         """ Read status response messages from the TiVo, and send them to
@@ -230,7 +236,9 @@ class Proxy:
         while True:
             try:
                 status = self.tivo.recv(1024)
-            except:
+            except Exception, err:
+                if self.verbose:
+                    sys.stderr.write('%s\n' % str(err))
                 status = ''
             if not status:
                 self.disconnect()
@@ -250,9 +258,14 @@ class Proxy:
             tivo.settimeout(5)
             tivo.connect(self.target)
             tivo.settimeout(None)
-        except:
+        except Exception, err:
+            if self.verbose:
+                sys.stderr.write('%s\n' % str(err))
             self.tivo = None
         else:
+            if self.verbose:
+                sys.stderr.write('Connected to TiVo at %s, port %d\n' %
+                                  self.target)
             self.tivo = tivo
             thread.start_new_thread(self.status_update, ())
 
@@ -261,6 +274,9 @@ class Proxy:
             self.tivo.close()
         except:
             pass
+        if self.verbose:
+            sys.stderr.write('Disconnected from TiVo at %s, port %d\n' %
+                              self.target)
         self.tivo = None        
 
     def serve(self):
