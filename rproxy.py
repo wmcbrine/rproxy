@@ -60,6 +60,7 @@ __version__ = '0.5'
 __license__ = 'GPL'
 
 import getopt
+import select
 import socket
 import sys
 import thread
@@ -177,9 +178,9 @@ class Proxy:
         self.target = target
         self.verbose = verbose
         self.host_port = host_port
-        self.tivo = self.connect()
+        self.reconnect = False
+        self.connect()
         thread.start_new_thread(self.process_queue, ())
-        thread.start_new_thread(self.status_update, ())
         self.serve()
         self.cleanup()
 
@@ -192,6 +193,11 @@ class Proxy:
             msg, address = self.queue.get()
             if self.verbose:
                 sys.stderr.write('%s: %s\n' % (address, msg))
+            if not self.tivo:
+                if self.reconnect:
+                    self.connect()
+                else:
+                    break
             try:
                 self.tivo.sendall(msg)
             except:
@@ -227,10 +233,7 @@ class Proxy:
             except:
                 status = ''
             if not status:
-                try:
-                    self.tivo.close()
-                except:
-                    pass
+                self.disconnect()
                 break
             if self.verbose:
                 sys.stderr.write('%s: %s\n' % (self.target, status))
@@ -248,8 +251,17 @@ class Proxy:
             tivo.connect(self.target)
             tivo.settimeout(None)
         except:
-            raise
-        return tivo
+            self.tivo = None
+        else:
+            self.tivo = tivo
+            thread.start_new_thread(self.status_update, ())
+
+    def disconnect(self):
+        try:
+            self.tivo.close()
+        except:
+            pass
+        self.tivo = None        
 
     def serve(self):
         """ Listen for connections from client remote control programs;
@@ -266,7 +278,10 @@ class Proxy:
         server.listen(5)
 
         try:
-            while True:
+            while self.tivo or self.reconnect:
+                isock, junk1, junk2 = select.select([server], [], [], 1)
+                if not isock:
+                    continue
                 client, address = server.accept()
                 self.listeners.append(client)
                 thread.start_new_thread(self.read_client, (client, address))
