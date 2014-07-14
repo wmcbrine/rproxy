@@ -191,13 +191,13 @@ class Proxy:
         """
         while True:
             msg, address = self.queue.get()
-            if self.verbose:
-                sys.stderr.write('%s: %s\n' % (address, msg))
             if not self.tivo:
                 if self.reconnect:
                     self.connect()
                 else:
                     break
+            if self.verbose:
+                sys.stderr.write('%s: %s\n' % (address, msg))
             try:
                 self.tivo.sendall(msg)
             except:
