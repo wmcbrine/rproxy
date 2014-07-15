@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Remote Proxy for TiVo, v0.5
+# Remote Proxy for TiVo, v0.6
 # Copyright 2014 William McBrine
 #
 # This program is free software; you can redistribute it and/or
@@ -61,7 +61,7 @@
 """
 
 __author__ = 'William McBrine <wmcbrine@gmail.com>'
-__version__ = '0.5'
+__version__ = '0.6'
 __license__ = 'GPL'
 
 import getopt

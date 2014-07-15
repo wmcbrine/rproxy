@@ -1,6 +1,6 @@
-Remote Proxy for TiVo, v0.5
+Remote Proxy for TiVo, v0.6
 by William McBrine <wmcbrine@gmail.com>
-June 17, 2014
+July 15, 2014
 
 This is a server that connects to the "Crestron" interface (port 31339) 
 on a Series 3 or later TiVo, and reflects the port back out, allowing 
@@ -76,6 +76,24 @@ Command-Line Options
 
 Changes
 -------
+
+0.6  -- Automatic reconnection to TiVos when the connection is lost (e.g.
+        when they restart), similar to Network Remote, unless specified
+        otherwise by the new commamd-line option "-x" (or "--exitdc") --
+        exit on disconnect -- in which case rproxy will exit completely
+        upon losing the connection. (Previously, it would continue
+        running, but in a non-working state.)
+
+        If the server port is not specified, automatically try the next
+        nine ports if another server has already bound 31339. This
+        simplifies proxying multiple TiVos from one machine.
+
+        Additional status messages in verbose mode.
+
+        Version 0.14 of zeroconf.py -- see the pyzeroconf project for 
+        details.
+
+        Some internal reorganization.
 
 0.5  -- TiVos can now be specified on the command line by name (i.e. the
         display name, as seen in the "My Shows" list, or via -l -- not
