@@ -46,6 +46,8 @@
     -v, --verbose      Echo messages to and from the TiVo to the console.
                        (In combination with -l, show extended details.)
 
+    -x, --exitdc       Exit on disconnection from the TiVo (e.g. it reboots).
+
     -h, --help         Print help and exit.
 
     <address>          Any other command-line option is treated as the name,
@@ -172,13 +174,14 @@ class ZCBroadcast:
         return socket.inet_aton(host)
 
 class Proxy:
-    def __init__(self, target, host_port=DEFAULT_HOST, verbose=False):
+    def __init__(self, target, host_port=DEFAULT_HOST, verbose=False,
+                 reconnect=True):
         self.queue = Queue()
         self.listeners = []
         self.target = target
         self.verbose = verbose
         self.host_port = host_port
-        self.reconnect = True
+        self.reconnect = reconnect
         self.connect()
         thread.start_new_thread(self.process_queue, ())
         self.serve()
@@ -388,12 +391,13 @@ def parse_cmdline(params):
     use_zc = have_zc
     verbose = False
     tmode = None
+    recon = True
 
     try:
-        opts, targets = getopt.getopt(params, 'a:p:lifzvh', ['address=',
+        opts, targets = getopt.getopt(params, 'a:p:lifzvxh', ['address=',
                                       'port=', 'list', 'interactive',
                                       'first', 'nozeroconf',
-                                      'verbose', 'help'])
+                                      'verbose', 'exitdc', 'help'])
     except getopt.GetoptError, msg:
         sys.stderr.write('%s\n' % msg)
         sys.exit(1)
@@ -413,6 +417,8 @@ def parse_cmdline(params):
             use_zc = False
         elif opt in ('-v', '--verbose'):
             verbose = True
+        elif opt in ('-x', '--exitdc'):
+            recon = False
         elif opt in ('-h', '--help'):
             print __doc__
             sys.exit()
@@ -425,12 +431,12 @@ def parse_cmdline(params):
         sys.stderr.write('Must specify an address\n')
         sys.exit(1)
 
-    return targets, (host, port), use_zc, verbose, tmode
+    return targets, (host, port), use_zc, verbose, tmode, recon
 
 def main(argv):
     tivos = {}
 
-    targets, host_port, use_zc, verbose, tmode = parse_cmdline(argv)
+    targets, host_port, use_zc, verbose, tmode, recon = parse_cmdline(argv)
 
     if use_zc:
         try:
@@ -449,7 +455,7 @@ def main(argv):
     if target:
         if use_zc:
             zc.announce(target, host_port, tivos)
-        Proxy(target, host_port, verbose)
+        Proxy(target, host_port, verbose, recon)
 
     if use_zc:
         zc.shutdown()
