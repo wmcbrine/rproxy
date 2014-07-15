@@ -33,6 +33,8 @@
 
     -p, --port         Specify the port to serve from. The default is
                        31339, the standard TiVo "Crestron" remote port.
+                       (If not specified, and 31339 is already in use,
+                       the next nine ports will also be tried.)
 
     -l, --list         List TiVos found on the network, and exit.
 
