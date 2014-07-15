@@ -289,12 +289,23 @@ class Proxy:
             Serve until KeyboardInterrupt.
 
         """
+        addr, port = self.host_port
+        if port == DEFAULT_HOST[1]:
+            tries = 10
+        else:
+            tries = 1
         server = socket.socket()
-        try:
-            server.bind(self.host_port)
-        except:
-            sys.stderr.write('Port %d already in use\n' % self.host_port[1])
-            return
+        while tries:
+            try:
+                server.bind((addr, port))
+                break
+            except:
+                tries -= 1
+                if self.verbose or not tries:
+                    sys.stderr.write('Port %d already in use\n' % port)
+                if not tries:
+                    return
+                port += 1
         server.listen(5)
 
         try:
