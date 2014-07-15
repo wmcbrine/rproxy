@@ -46,7 +46,8 @@
     -v, --verbose      Echo messages to and from the TiVo to the console.
                        (In combination with -l, show extended details.)
 
-    -x, --exitdc       Exit on disconnection from the TiVo (e.g. it reboots).
+    -x, --exitdc       Exit on disconnection from the TiVo (e.g. it reboots). 
+                       Absent this option, rproxy will attempt to reconnect.
 
     -h, --help         Print help and exit.
 

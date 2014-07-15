@@ -61,6 +61,9 @@ Command-Line Options
 -v, --verbose      Echo messages to and from the TiVo to the console.
                    (In combination with -l, show extended details.)
 
+-x, --exitdc       Exit on disconnection from the TiVo (e.g. it reboots). 
+                   Absent this option, rproxy will attempt to reconnect.
+
 -h, --help         Print help and exit.
 
 <address>          Any other command-line option is treated as the name,
@@ -72,7 +75,7 @@ Command-Line Options
 Changes
 -------
 
-0.5 --  TiVos can now be specified on the command line by name (i.e. the
+0.5  -- TiVos can now be specified on the command line by name (i.e. the
         display name, as seen in the "My Shows" list, or via -l -- not
         to be confused with the DNS name, which also works), or by TiVo
         Service Number, as well as by IP. Based on a suggestion by
@@ -88,7 +91,7 @@ Changes
 
         Better reporting of various error conditions.
 
-0.4 --  Automatic discovery of TiVos, via the interactive (-i) and list
+0.4  -- Automatic discovery of TiVos, via the interactive (-i) and list
         (-l) options, so you don't need to know your TiVo's address
         beforehand. Already-proxied TiVos are recognized, and excluded
         from the interactive menu. Note that (unlike my Network Remote)
