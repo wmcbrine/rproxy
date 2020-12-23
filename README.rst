@@ -2,8 +2,8 @@ Remote Proxy for TiVo
 =====================
 
 :Author:  William McBrine <wmcbrine@gmail.com>
-:Version: 0.6
-:Date:    July 15, 2014
+:Version: 0.7
+:Date:    December 23, 2020
 
 This is a server that connects to the "Crestron" interface (port 31339) 
 on a Series 3 or later TiVo, and reflects the port back out, allowing 

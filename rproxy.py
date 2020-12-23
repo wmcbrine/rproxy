@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-# Remote Proxy for TiVo, v0.6
-# Copyright 2014 William McBrine
+# Remote Proxy for TiVo, v0.7
+# Copyright 2014-2020 William McBrine
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,17 +61,23 @@
 """
 
 __author__ = 'William McBrine <wmcbrine@gmail.com>'
-__version__ = '0.6'
+__version__ = '0.7'
 __license__ = 'GPL'
 
 import getopt
 import select
 import socket
 import sys
-import thread
 import time
 
-from Queue import Queue
+if 3 == sys.version_info[0]:
+    import _thread
+    from queue import Queue
+    inp = input
+else:
+    import thread as _thread
+    from Queue import Queue
+    inp = raw_input
 
 have_zc = True
 try:
@@ -158,7 +164,7 @@ class ZCBroadcast:
             for t in tivo_names:
                 if t.startswith('Proxy('):
                     address = t.replace('.' + SERVICE, '')[6:-1]
-                    for key in tivos.keys()[:]:
+                    for key in list(tivos.keys()):
                         if key[0] == address:
                             tivos.pop(key)
         return tivos
@@ -186,7 +192,7 @@ class Proxy:
         self.host_port = host_port
         self.reconnect = reconnect
         self.connect()
-        thread.start_new_thread(self.process_queue, ())
+        _thread.start_new_thread(self.process_queue, ())
         self.serve()
         self.cleanup()
 
@@ -220,7 +226,7 @@ class Proxy:
         while True:
             try:
                 msg = client.recv(1024)
-            except Exception, err:
+            except Exception as err:
                 if self.verbose:
                     sys.stderr.write('%s\n' % str(err))
                 break
@@ -242,7 +248,7 @@ class Proxy:
         while True:
             try:
                 status = self.tivo.recv(1024)
-            except Exception, err:
+            except Exception as err:
                 if self.verbose:
                     sys.stderr.write('%s\n' % str(err))
                 status = ''
@@ -264,7 +270,7 @@ class Proxy:
             tivo.settimeout(5)
             tivo.connect(self.target)
             tivo.settimeout(None)
-        except Exception, err:
+        except Exception as err:
             if self.verbose:
                 sys.stderr.write('%s\n' % str(err))
             self.tivo = None
@@ -273,7 +279,7 @@ class Proxy:
                 sys.stderr.write('Connected to TiVo at %s, port %d\n' %
                                   self.target)
             self.tivo = tivo
-            thread.start_new_thread(self.status_update, ())
+            _thread.start_new_thread(self.status_update, ())
 
     def disconnect(self):
         try:
@@ -317,7 +323,7 @@ class Proxy:
                     continue
                 client, address = server.accept()
                 self.listeners.append(client)
-                thread.start_new_thread(self.read_client, (client, address))
+                _thread.start_new_thread(self.read_client, (client, address))
         except KeyboardInterrupt:
             pass
 
@@ -337,12 +343,13 @@ class Proxy:
 def dump(tivos, verbose):
     """ List TiVos found and exit. """
     for key, data in tivos.items():
+        address, port = key
         name, prop = data
-        print '%s:%d -' % key, name
+        print('%s:%d - %s' % (address, port, name))
         if verbose:
             for pkey, pdata in prop.items():
-                print ' %s: %s' % (pkey, pdata)
-            print
+                print(' %s: %s' % (pkey, pdata))
+            print('')
 
 def choose(tivos):
     """ List TiVos found, and allow user to choose one. """
@@ -350,11 +357,11 @@ def choose(tivos):
     i = 1
     for key, data in tivos.items():
         choices[str(i)] = key
+        address, port = key
         name, prop = data
-        print '%d.' % i,
-        print '%s:%d -' % key, name
+        print('%d. %s:%d - %s' % (i, address, port, name))
         i += 1
-    choice = raw_input('Connect to which? ')
+    choice = inp('Connect to which? ')
     return choices.get(choice)
 
 def by_name(tivos, target):
@@ -412,8 +419,8 @@ def parse_cmdline(params):
                                       'port=', 'list', 'interactive',
                                       'first', 'nozeroconf',
                                       'verbose', 'exitdc', 'help'])
-    except getopt.GetoptError, msg:
-        sys.stderr.write('%s\n' % msg)
+    except getopt.GetoptError as msg:
+        sys.stderr.write('%s\n' % str(msg))
         sys.exit(1)
 
     for opt, value in opts:
@@ -434,7 +441,7 @@ def parse_cmdline(params):
         elif opt in ('-x', '--exitdc'):
             recon = False
         elif opt in ('-h', '--help'):
-            print __doc__
+            print(__doc__)
             sys.exit()
 
     if tmode and not use_zc:
