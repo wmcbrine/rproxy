@@ -22,12 +22,12 @@ But most third-party apps use this older interface. To use rproxy, you
 must first enable the interface on the TiVo, and you need one or more 
 appropriate remote apps, such as my Network Remote.
 
-Like my other TiVo apps, rproxy relies on Python 2.x (standard with OS X 
-and Linux, otherwise available from http://python.org/ .)
+rproxy relies on Python 2.6 or later, including 3.x (standard with macOS 
+and Linux, otherwise available from https://python.org/ .)
 
 Remote Proxy was inspired by this TCF thread:
 
-http://www.tivocommunity.com/tivo-vb/showthread.php?t=517604
+https://www.tivocommunity.com/tivo-vb/showthread.php?t=517604
 
 
 Quick Start
@@ -78,6 +78,9 @@ to. This is a required parameter, except with -l, -i, -f or -h.
 
 Changes
 -------
+
+0.7
+    Updated for compatibility with Python 3.x; includes zeroconf 0.16.
 
 0.6
     Automatic reconnection to TiVos when the connection is lost (e.g.
